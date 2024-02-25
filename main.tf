@@ -81,6 +81,9 @@ resource "aws_instance" "terra" {
   }
 
   associate_public_ip_address = true
+
+  # TODO:: Write for iam role creation
+  iam_instance_profile = "CodeDeploy"
 }
 
 resource "aws_eip" "terra_eip" {
