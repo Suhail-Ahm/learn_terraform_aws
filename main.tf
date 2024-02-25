@@ -83,12 +83,59 @@ resource "aws_instance" "terra" {
   associate_public_ip_address = true
 
   # TODO:: Write for iam role creation
-  iam_instance_profile = "CodeDeploy"
+  iam_instance_profile = "EC2S3Role"
+
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file("/home/suhail/Desktop/personnal/my-terra-ec2.pem")
+    host        = self.public_ip
+  }
+  # Run provisioner to execute commands on the EC2 instance
+  provisioner "remote-exec" {
+    inline = [
+      "sudo apt-get update",
+      "sudo apt-get install -y nginx",
+      "sudo apt-get update",
+      "sudo apt-get install -y ruby wget",
+      "sudo apt-get install -y -f",
+      "cd /home/ubuntu",
+      "wget https://aws-codedeploy-ca-central-1.s3.ca-central-1.amazonaws.com/latest/install",
+      "chmod +x ./install",
+      "sudo ./install auto"
+    ]
+  }
+
 }
 
 resource "aws_eip" "terra_eip" {
   instance = aws_instance.terra.id
   tags = {
     Name = "terra"
+  }
+}
+
+# Define CodeDeploy application
+resource "aws_codedeploy_app" "fastapi_deploy" {
+  name             = "Fastapi"
+  compute_platform = "Server"
+  tags = {
+    "Name" = "Terraform"
+  }
+}
+
+data "aws_iam_role" "codedeploy_role" {
+  name = "CodeDeployRole"
+}
+
+resource "aws_codedeploy_deployment_group" "fastapi_deploy_group" {
+  app_name               = aws_codedeploy_app.fastapi_deploy.name
+  deployment_group_name  = "dev"
+  service_role_arn       = data.aws_iam_role.codedeploy_role.arn
+  deployment_config_name = "CodeDeployDefault.OneAtATime"
+  ec2_tag_filter {
+    key   = "Name"
+    type  = "KEY_AND_VALUE"
+    value = "Terraform"
   }
 }
